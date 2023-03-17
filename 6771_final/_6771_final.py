@@ -1,89 +1,94 @@
-
-"""
-Implementation of Bilateral filter
-Inputs:
-    img: A 2d image with values in between 0 and 1
-    varS: variance in space dimension.
-    varI: variance in range parameter.
-    N: Kernel size(Must be an odd number)
-Output:
-    img:A 2d zero padded image with values in between 0 and 1
-"""
 import sys
 import numpy as np
-import math
+import matplotlib.pyplot as plt
 import cv2
 
-# 1d gaussian filter function
-def gaussian_1d(img_sec: np.ndarray, var: float) -> np.ndarray:
-    sigma = math.sqrt(var)
-    return (1/(math.sqrt(2*math.pi)*sigma)) * np.exp(-(img_sec**2)/(2*sigma**2))
 
-#Gaussian kernel generator using the 1d function above
-def gaussian_kernel(k_s: int, spatial_var: float) -> np.ndarray:
-    a= (k_s,k_s)
-    square = np.zeros(a)
-    x,y = square.shape
-    for i in range(0,x):
-        for j in range(0,y):
-            #Distance from the center (Figure 3.34 from textbook)
-            square[i, j] = math.sqrt((i - k_s // 2) ** 2 + (j - k_s // 2) ** 2)
-    return gaussian_1d(square, spatial_var)
+def bilateral_filter(image, kernel_size, sigma_intensity, sigma_range):
+    half_size = kernel_size // 2  
+    height, width = image.shape[0], image.shape[1]
+    RGB = 1
+    dim = len(image.shape)
+    if dim != 2:
+        RGB = image.shape[2]
+    #print(RGB)
+    image = image.reshape(height, width, RGB)
+    output_image = np.zeros(image.shape)
+    
 
-#Get a submatrix from the original matrix
-def sub_matrix(img: np.ndarray, x: int, y: int, k_s: int) -> np.ndarray:
-    value_size = k_s // 2
-    return img[x - value_size : x + value_size + 1, y - value_size : y + value_size + 1]
-
-
-def my_bilateral_filter(original: np.ndarray,spatial_var: float,range_var: float,k_s: int,) -> np.ndarray:
-    kernel = gaussian_kernel(k_s, spatial_var)
-    value_size = k_s//2;
-    filtered_img = np.zeros(original.shape)
-    normalized = original/255
-    normalized = np.pad(normalized, value_size, mode="constant")
-    normalized = normalized.astype(np.float64)
-    size_x, size_y = original.shape
-    x = size_x - value_size
-    y = size_y - value_size
-    for i in range(value_size, x):
-        for j in range(value_size,y):
-            current_window = sub_matrix(normalized, i, j, k_s)
-            range_diff_window = current_window - current_window[value_size, value_size]
-            subimg_range = gaussian_1d(range_diff_window, range_var)
-            weights = np.multiply(kernel, subimg_range)
-            featured_window = np.multiply(current_window, weights)
-            featured_val = np.sum(featured_window) / np.sum(weights)
-            filtered_img[i, j] = featured_val
-    filtered_img = filtered_img * 255
-    filtered_img = filtered_img.astype(np.uint8)
-    return filtered_img
-
+    for i in range(half_size, height - half_size):
+        for j in range(half_size, width - half_size):
+            for k in range(RGB):
+                total_weight = 0.0
+                total_feature = 0.0
+                for x in range(-half_size, half_size+1):
+                    for y in range(-half_size, half_size+1):
+                        #Range weight (Gaussian)
+                        weight_range = -(x ** 2 + y ** 2) / (2 * (sigma_range ** 2))
+                        #Intensity difference (Also Gaussian)
+                        intensity_feature = -(int(image[i][j][k]) - int(image[i + x][j + y][k])) ** 2 / (2 * (sigma_intensity ** 2))
+                        weight = np.exp(weight_range + intensity_feature)
+                        total_weight += weight
+                        total_feature += (weight * image[i + x][j + y][k])
+                        #Normalization
+                curr_scale = total_feature / total_weight
+                output_image[i][j][k] = curr_scale
+    return output_image.astype(np.uint8)
 
 def arguments(args: list) -> tuple:
-    filename = args[1] if args[1:] else "random.jpg"
-    spatial_var = float(args[2]) if args[2:] else 1.0
-    range_var = float(args[3]) if args[3:] else 1.0
+    filename = args[1] if args[1:] else "random.png"
+    sigma_intensity = float(args[2]) if args[2:] else 100.0
+    sigma_range = float(args[3]) if args[3:] else 3.0
     if args[4:]:
         k_s = int(args[4])
         #Kernel size must be an odd number
         if k_s % 2 == 0:
             k_s += 1
     else:
-        k_s = 3
-    return filename, spatial_var, range_var, k_s
+        k_s = 9
+    return filename, sigma_intensity, sigma_range, k_s
 
 
-if __name__ == "__main__":
-    filename, spatial_var, range_var, k_s = arguments(sys.argv)
-    img = cv2.imread(filename, 0)
-    cv2.imshow("input image", img)
-    out = my_bilateral_filter(img, spatial_var, range_var, k_s)
-    #out = cv2.bilateralFilter(img, 15, 75, 75)
-    cv2.imshow("output image", out)
-    #cv2.imwrite(r'C:\Users\x_zhu202\source\repos\6771_final\6771_final\rossobw.png',img)
-    #cv2.imwrite(r'C:\Users\x_zhu202\source\repos\6771_final\6771_final\rossosample.png',out)
-    #gaus = cv2.GaussianBlur(img, (9,9),75)
-    #cv2.imshow("gaussian image", gaus)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+if __name__ == '__main__':
+    file_path, sigma_intensity, sigma_range, kernel_size = arguments(sys.argv)
+    file_path = 'cameraman.png'
+    image = cv2.imread(file_path, 0)
+    #print(image.shape)
+    gauss = cv2.GaussianBlur(image, (9,9), 10)
+    #bilateral = cv2.bilateralFilter(image, kernel_size, sigma_intensity, sigma_range)
+    my_bilateral = bilateral_filter(image, 9, 10,10)
+    #print(mat.shape)
+    
+    #cv2.imshow("cv2", bilateral)
+    #cv2.imshow("My output", mat)
+
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+    
+    figure = plt.figure(figsize=(10, 10))
+    #plt.subplot(1, 3, 1), plt.title('a) Original image')
+    #plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB)), plt.axis('off')
+    #plt.subplot(2, 2, 2), plt.title('my gaussian filter')
+    #plt.imshow(cv2.cvtColor(gauss, cv2.COLOR_BGR2RGB)), plt.axis('off')
+    #plt.subplot(1, 3, 2), plt.title('b) Bilateral filter from OpenCV')
+    #plt.imshow(cv2.cvtColor(bilateral, cv2.COLOR_BGR2RGB)), plt.axis('off')
+    plt.subplot(1, 4, 1), plt.title('10')
+    plt.imshow(cv2.cvtColor(my_bilateral, cv2.COLOR_BGR2RGB)), plt.axis('off')
+    my_bilateral = bilateral_filter(image, 9,75,10)
+    plt.subplot(1, 4, 2), plt.title('75')
+    plt.imshow(cv2.cvtColor(my_bilateral, cv2.COLOR_BGR2RGB)), plt.axis('off')
+    my_bilateral = bilateral_filter(image, 9,300,10)
+    plt.subplot(1, 4, 3), plt.title('300')
+    plt.imshow(cv2.cvtColor(my_bilateral, cv2.COLOR_BGR2RGB)), plt.axis('off')
+    plt.subplot(1, 4, 4), plt.title('Gaussian')
+    plt.imshow(cv2.cvtColor(gauss, cv2.COLOR_BGR2RGB)), plt.axis('off')
+    plt.gca().set_axis_off()
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, hspace = 0, wspace = 0)
+    plt.margins(0,0)
+    plt.gca().xaxis.set_major_locator(plt.NullLocator())
+    plt.gca().yaxis.set_major_locator(plt.NullLocator())
+    plt.show()
+    figure.savefig('result.png', bbox_inches = 'tight',
+    pad_inches = 0)
+
+
