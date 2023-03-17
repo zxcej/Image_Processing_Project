@@ -22,7 +22,7 @@ Note: The script currently sets `file_path` to `'cameraman.png'`, so the image b
 
 ## Report
 
-The report for this project can be found [here]()
+The report for this project can be found [here](https://github.com/zxcej/6771_final/blob/master/Bilateral%20Filter%20for%20Grayscale%20images.pdf)
 
 
 ## References
